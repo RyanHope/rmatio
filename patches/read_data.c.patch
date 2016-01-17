@@ -1,0 +1,51 @@
+*** read_data.c.orig	2016-01-17 13:24:17.908031222 +0100
+--- read_data.c	2016-01-17 13:29:06.952038962 +0100
+***************
+*** 30,35 ****
+--- 30,41 ----
+   * POSSIBILITY OF SUCH DAMAGE.
+   */
+  
++ /**
++  * Changed all printf to Rprintf to pass 'R CMD check git2r'
++  * 2016-01-17: Stefan Widgren <stefan.widgren@gmail.com>
++  */
++ void Rprintf(const char*, ...);
++ 
+  /* FIXME: Implement Unicode support */
+  #include <stdlib.h>
+  #include <string.h>
+***************
+*** 3712,3718 ****
+              break;
+          }
+          default:
+!             printf("Character data not supported type: %d",data_type);
+              break;
+      }
+      nBytes = len*data_size;
+--- 3718,3724 ----
+              break;
+          }
+          default:
+!             Rprintf("Character data not supported type: %d",data_type);
+              break;
+      }
+      nBytes = len*data_size;
+***************
+*** 3757,3763 ****
+              break;
+          }
+          default:
+!             printf("Character data not supported type: %d",data_type);
+              break;
+      }
+      bytesread *= data_size;
+--- 3763,3769 ----
+              break;
+          }
+          default:
+!             Rprintf("Character data not supported type: %d",data_type);
+              break;
+      }
+      bytesread *= data_size;
