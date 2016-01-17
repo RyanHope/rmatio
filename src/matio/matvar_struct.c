@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012   Christopher C. Hulbert
+ * Copyright (C) 2012-2016   Christopher C. Hulbert
  *
  * All rights reserved.
  *
@@ -26,16 +26,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * Changes in the R package rmatio:
- *
- * - The io routines have been adopted to use R printing and error routines.
- *   See the R manual Writing R Extensions
- *
+/**
+ * Changed all 'Mat_Critical' to 'Rf_error'.
+ * 2016-01-17: Stefan Widgren <stefan.widgren@gmail.com>
  */
-
-#include <Rdefines.h>
-#define Mat_Critical error
+void Rf_error(const char*, ...);
 
 #include <stdlib.h>
 #include <string.h>
@@ -49,9 +44,7 @@
  * @param dims array of dimensions of the variable of size rank
  * @param fields Array of @c nfields fieldnames
  * @param nfields Number of fields in the structure
- * @param matvar Pointer to store the new structure MATLAB variable
- * @return @c MATIO_SUCCESS if successful, or an error value (See
- *          @ref enum matio_error_t).
+ * @return Pointer to the new structure MATLAB variable on success, NULL on error
  */
 matvar_t *
 Mat_VarCreateStruct(const char *name,int rank,size_t *dims,const char **fields,
@@ -119,7 +112,7 @@ Mat_VarCreateStruct(const char *name,int rank,size_t *dims,const char **fields,
  * element).
  * @ingroup MAT
  * @param matvar Pointer to the Structure MAT variable
- * @param fields Array of fields to be added
+ * @param fieldname Name of field to be added
  * @retval 0 on success
  */
 int
@@ -225,10 +218,10 @@ Mat_VarGetStructFieldByIndex(matvar_t *matvar,size_t field_index,size_t index)
     nfields = matvar->internal->num_fields;
 
     if ( nmemb > 0 && index >= nmemb ) {
-        Mat_Critical("Mat_VarGetStructField: structure index out of bounds");
+        Rf_error("Mat_VarGetStructField: structure index out of bounds");
     } else if ( nfields > 0 ) {
         if ( field_index > nfields ) {
-            Mat_Critical("Mat_VarGetStructField: field index out of bounds");
+            Rf_error("Mat_VarGetStructField: field index out of bounds");
         } else {
             field = *((matvar_t **)matvar->data+index*nfields+field_index);
         }
@@ -272,7 +265,7 @@ Mat_VarGetStructFieldByName(matvar_t *matvar,const char *field_name,
     }
 
     if ( index >= nmemb ) {
-        Mat_Critical("Mat_VarGetStructField: structure index out of bounds");
+        Rf_error("Mat_VarGetStructField: structure index out of bounds");
     } else if ( field_index >= 0 ) {
         field = *((matvar_t **)matvar->data+index*nfields+field_index);
     }
@@ -336,10 +329,10 @@ Mat_VarGetStructField(matvar_t *matvar,void *name_or_index,int opt,int index)
  * @ingroup MAT
  * @param matvar Structure matlab variable
  * @param start vector of length rank with 0-relative starting coordinates for
- *              each diemnsion.
- * @param stride vector of length rank with strides for each diemnsion.
+ *              each dimension.
+ * @param stride vector of length rank with strides for each dimension.
  * @param edge vector of length rank with the number of elements to read in
- *              each diemnsion.
+ *              each dimension.
  * @param copy_fields 1 to copy the fields, 0 to just set pointers to them.
  * @returns A new structure array with fields indexed from @c matvar.
  */

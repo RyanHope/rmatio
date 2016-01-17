@@ -1,0 +1,58 @@
+*** matvar_struct.c.orig	2016-01-17 13:38:24.600053896 +0100
+--- matvar_struct.c	2016-01-17 13:42:10.040059933 +0100
+***************
+*** 25,30 ****
+--- 25,37 ----
+   * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   * POSSIBILITY OF SUCH DAMAGE.
+   */
++ 
++ /**
++  * Changed all 'Mat_Critical' to 'Rf_error'.
++  * 2016-01-17: Stefan Widgren <stefan.widgren@gmail.com>
++  */
++ void Rf_error(const char*, ...);
++ 
+  #include <stdlib.h>
+  #include <string.h>
+  #include "matio_private.h"
+***************
+*** 211,220 ****
+      nfields = matvar->internal->num_fields;
+  
+      if ( nmemb > 0 && index >= nmemb ) {
+!         Mat_Critical("Mat_VarGetStructField: structure index out of bounds");
+      } else if ( nfields > 0 ) {
+          if ( field_index > nfields ) {
+!             Mat_Critical("Mat_VarGetStructField: field index out of bounds");
+          } else {
+              field = *((matvar_t **)matvar->data+index*nfields+field_index);
+          }
+--- 218,227 ----
+      nfields = matvar->internal->num_fields;
+  
+      if ( nmemb > 0 && index >= nmemb ) {
+!         Rf_error("Mat_VarGetStructField: structure index out of bounds");
+      } else if ( nfields > 0 ) {
+          if ( field_index > nfields ) {
+!             Rf_error("Mat_VarGetStructField: field index out of bounds");
+          } else {
+              field = *((matvar_t **)matvar->data+index*nfields+field_index);
+          }
+***************
+*** 258,264 ****
+      }
+  
+      if ( index >= nmemb ) {
+!         Mat_Critical("Mat_VarGetStructField: structure index out of bounds");
+      } else if ( field_index >= 0 ) {
+          field = *((matvar_t **)matvar->data+index*nfields+field_index);
+      }
+--- 265,271 ----
+      }
+  
+      if ( index >= nmemb ) {
+!         Rf_error("Mat_VarGetStructField: structure index out of bounds");
+      } else if ( field_index >= 0 ) {
+          field = *((matvar_t **)matvar->data+index*nfields+field_index);
+      }
