@@ -1,0 +1,540 @@
+*** inflate.c.orig	2016-01-11 19:00:00.000000000 +0100
+--- inflate.c	2016-01-17 12:15:44.108293797 +0100
+***************
+*** 29,34 ****
+--- 29,44 ----
+   * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+   * POSSIBILITY OF SUCH DAMAGE.
+   */
++ 
++ /**
++  * Changes in the R package rmatio: The io routines have been adopted
++  * to use R printing and error routines.
++  *
++  * Changed all 'Mat_Critical' to 'Rf_error'.
++  * 2016-01-17: Stefan Widgren <stefan.widgren@gmail.com>
++  */
++ void Rf_error(const char*, ...);
++ 
+  #include <stdlib.h>
+  #include "matio_private.h"
+  
+***************
+*** 66,72 ****
+      if ( err == Z_STREAM_END ) {
+          return bytesread;
+      } else if ( err != Z_OK ) {
+!         Mat_Critical("InflateSkip: inflate returned %d",err);
+          return bytesread;
+      }
+      if ( !z->avail_out ) {
+--- 76,82 ----
+      if ( err == Z_STREAM_END ) {
+          return bytesread;
+      } else if ( err != Z_OK ) {
+!         Rf_error("InflateSkip: inflate returned %d",err);
+          return bytesread;
+      }
+      if ( !z->avail_out ) {
+***************
+*** 85,91 ****
+          if ( err == Z_STREAM_END ) {
+              break;
+          } else if ( err != Z_OK ) {
+!             Mat_Critical("InflateSkip: inflate returned %d",err);
+              break;
+          }
+          if ( !z->avail_out ) {
+--- 95,101 ----
+          if ( err == Z_STREAM_END ) {
+              break;
+          } else if ( err != Z_OK ) {
+!             Rf_error("InflateSkip: inflate returned %d",err);
+              break;
+          }
+          if ( !z->avail_out ) {
+***************
+*** 130,136 ****
+      matvar->internal->z->next_out = uncomp_buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateSkip2: %s - inflate returned %d",matvar->name,err);
+          return bytesread;
+      }
+      if ( !matvar->internal->z->avail_out ) {
+--- 140,146 ----
+      matvar->internal->z->next_out = uncomp_buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateSkip2: %s - inflate returned %d",matvar->name,err);
+          return bytesread;
+      }
+      if ( !matvar->internal->z->avail_out ) {
+***************
+*** 146,152 ****
+          }
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateSkip2: %s - inflate returned %d",matvar->name,err);
+              return bytesread;
+          }
+          if ( !matvar->internal->z->avail_out ) {
+--- 156,162 ----
+          }
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateSkip2: %s - inflate returned %d",matvar->name,err);
+              return bytesread;
+          }
+          if ( !matvar->internal->z->avail_out ) {
+***************
+*** 253,259 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateVarTag: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 263,269 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateVarTag: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 262,268 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateVarTag: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 272,278 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateVarTag: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 302,308 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateArrayFlags: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 312,318 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateArrayFlags: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 311,317 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateArrayFlags: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 321,327 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateArrayFlags: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 355,361 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateDimensions: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 365,371 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateDimensions: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 364,370 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateDimensions: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 374,380 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateDimensions: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 374,383 ****
+          Mat_int32Swap(tag);
+          Mat_int32Swap(tag+1);
+      }
+!     if ( (tag[0] & 0x0000ffff) != MAT_T_INT32 ) {
+!         Mat_Critical("InflateDimensions: Reading dimensions expected type MAT_T_INT32");
+          return bytesread;
+-     }
+      rank = tag[1];
+      if ( rank % 8 != 0 )
+          i = 8-(rank %8);
+--- 384,396 ----
+          Mat_int32Swap(tag);
+          Mat_int32Swap(tag+1);
+      }
+! 
+!     /**
+!      *  Stefan Widgren: 2014-04-28
+!      *  Removed throwing an error if the data type not equals MAT_T_INT32
+!      */
+!     if ( (tag[0] & 0x0000ffff) != MAT_T_INT32 )
+          return bytesread;
+      rank = tag[1];
+      if ( rank % 8 != 0 )
+          i = 8-(rank %8);
+***************
+*** 394,400 ****
+      matvar->internal->z->next_out = (void *)((mat_int32_t *)buf+2);
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateDimensions: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 407,413 ----
+      matvar->internal->z->next_out = (void *)((mat_int32_t *)buf+2);
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateDimensions: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 403,409 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateDimensions: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 416,422 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateDimensions: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 443,449 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateVarNameTag: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 456,462 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateVarNameTag: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 452,458 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateVarNameTag: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 465,471 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateVarNameTag: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 493,499 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateVarName: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 506,512 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateVarName: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 502,508 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateVarName: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 515,521 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateVarName: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 545,551 ****
+      if ( err == Z_STREAM_END ) {
+          return bytesread;
+      } else if ( err != Z_OK ) {
+!         Mat_Critical("InflateDataTag: %s - inflate returned %d",matvar->name,err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 558,564 ----
+      if ( err == Z_STREAM_END ) {
+          return bytesread;
+      } else if ( err != Z_OK ) {
+!         Rf_error("InflateDataTag: %s - inflate returned %d",matvar->name,err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 556,562 ****
+          if ( err == Z_STREAM_END ) {
+              break;
+          } else if ( err != Z_OK ) {
+!             Mat_Critical("InflateDataTag: %s - inflate returned %d",matvar->name,err);
+              return bytesread;
+          }
+      }
+--- 569,575 ----
+          if ( err == Z_STREAM_END ) {
+              break;
+          } else if ( err != Z_OK ) {
+!             Rf_error("InflateDataTag: %s - inflate returned %d",matvar->name,err);
+              return bytesread;
+          }
+      }
+***************
+*** 597,603 ****
+      z->next_out = buf;
+      err = inflate(z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateDataType: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( z->avail_out && !z->avail_in ) {
+--- 610,616 ----
+      z->next_out = buf;
+      err = inflate(z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateDataType: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( z->avail_out && !z->avail_in ) {
+***************
+*** 606,612 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateDataType: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 619,625 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateDataType: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 639,645 ****
+      if ( buf == NULL )
+          return 0;
+      if ( nBytes < 1 ) {
+!         Mat_Critical("InflateData: nBytes must be > 0");
+          return bytesread;
+      }
+  
+--- 652,658 ----
+      if ( buf == NULL )
+          return 0;
+      if ( nBytes < 1 ) {
+!         Rf_error("InflateData: nBytes must be > 0");
+          return bytesread;
+      }
+  
+***************
+*** 660,666 ****
+      if ( err == Z_STREAM_END ) {
+          return bytesread;
+      } else if ( err != Z_OK ) {
+!         Mat_Critical("InflateData: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( z->avail_out && !z->avail_in ) {
+--- 673,679 ----
+      if ( err == Z_STREAM_END ) {
+          return bytesread;
+      } else if ( err != Z_OK ) {
+!         Rf_error("InflateData: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( z->avail_out && !z->avail_in ) {
+***************
+*** 681,687 ****
+          if ( err == Z_STREAM_END ) {
+              break;
+          } else if ( err != Z_OK && err != Z_BUF_ERROR ) {
+!             Mat_Critical("InflateData: inflate returned %d",err);
+              break;
+          }
+      }
+--- 694,700 ----
+          if ( err == Z_STREAM_END ) {
+              break;
+          } else if ( err != Z_OK && err != Z_BUF_ERROR ) {
+!             Rf_error("InflateData: inflate returned %d",err);
+              break;
+          }
+      }
+***************
+*** 723,729 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateFieldNameLength: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 736,742 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateFieldNameLength: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 732,738 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateFieldNameLength: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 745,751 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateFieldNameLength: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 773,779 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateFieldNamesTag: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 786,792 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateFieldNamesTag: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 782,788 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateFieldNamesTag: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 795,801 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateFieldNamesTag: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+***************
+*** 831,837 ****
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Mat_Critical("InflateFieldNames: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+--- 844,850 ----
+      matvar->internal->z->next_out = buf;
+      err = inflate(matvar->internal->z,Z_NO_FLUSH);
+      if ( err != Z_OK ) {
+!         Rf_error("InflateFieldNames: inflate returned %d",err);
+          return bytesread;
+      }
+      while ( matvar->internal->z->avail_out && !matvar->internal->z->avail_in ) {
+***************
+*** 840,846 ****
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Mat_Critical("InflateFieldNames: inflate returned %d",err);
+              return bytesread;
+          }
+      }
+--- 853,859 ----
+          bytesread += fread(comp_buf,1,1,mat->fp);
+          err = inflate(matvar->internal->z,Z_NO_FLUSH);
+          if ( err != Z_OK ) {
+!             Rf_error("InflateFieldNames: inflate returned %d",err);
+              return bytesread;
+          }
+      }
