@@ -3,5 +3,6 @@
 ^\.travis\.yml$
 ^Makefile$
 ^appveyor.yml$
-^local320\.zip$
+^local\.zip$
+^patches$
 src/zlib
