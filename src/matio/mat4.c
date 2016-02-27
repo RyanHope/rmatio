@@ -3,7 +3,7 @@
  * @ingroup MAT
  */
 /*
- * Copyright (C) 2005-2011   Christopher C. Hulbert
+ * Copyright (C) 2005-2016   Christopher C. Hulbert
  *
  * All rights reserved.
  *
@@ -29,23 +29,155 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-/*
- * Changes in the R package rmatio:
- *
- * - The io routines have been adopted to use R printing and error routines.
- *   See the R manual Writing R Extensions
- *
- */
-
-#include <Rdefines.h>
-#define Mat_Critical error
-
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <math.h>
 #include "matio_private.h"
 #include "mat4.h"
+
+/**
+ * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
+ * Changed 'Mat_Critical' to 'Rf_error'.
+ *
+ * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
+ * Replaced strdup_printf with strdup
+ *
+ * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
+ * (Read4): Added support to read sparse matrix of double
+ *  and complex data
+ *
+ * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
+ * (Mat_VarReadNextInfo4): Check if data is complex when reading info
+ * for a sparse matrix.
+ */
+void Rf_error(const char*, ...);
+
+/** @if mat_devman
+ * @brief Creates a new Matlab MAT version 4 file
+ *
+ * Tries to create a new Matlab MAT file with the given name.
+ * @ingroup MAT
+ * @param matname Name of MAT file to create
+ * @return A pointer to the MAT file or NULL if it failed.  This is not a
+ * simple FILE * and should not be used as one.
+ * @endif
+ */
+mat_t *
+Mat_Create4(const char* matname)
+{
+    FILE *fp = NULL;
+    mat_t *mat = NULL;
+
+    fp = fopen(matname,"wb");
+    if ( !fp )
+        return NULL;
+
+    mat = malloc(sizeof(*mat));
+    if ( NULL == mat ) {
+        fclose(fp);
+        Rf_error("Couldn't allocate memory for the MAT file");
+        return NULL;
+    }
+
+    mat->header        = NULL;
+    mat->subsys_offset = NULL;
+    mat->fp            = fp;
+    mat->version       = MAT_FT_MAT4;
+    mat->byteswap      = 0;
+    mat->bof           = 0;
+    mat->next_index    = 0;
+    mat->refs_id       = -1;
+    mat->filename      = strdup(matname);
+    mat->mode          = 0;
+
+    Mat_Rewind(mat);
+
+    return mat;
+}
+
+/** @if mat_devman
+ * @brief Writes a matlab variable to a version 4 matlab file
+ *
+ * @ingroup mat_internal
+ * @param mat MAT file pointer
+ * @param matvar pointer to the mat variable
+ * @retval 0 on success
+ * @endif
+ */
+int
+Mat_VarWrite4(mat_t *mat,matvar_t *matvar)
+{
+    typedef struct {
+        mat_int32_t type;
+        mat_int32_t mrows;
+        mat_int32_t ncols;
+        mat_int32_t imagf;
+        mat_int32_t namelen;
+    } Fmatrix;
+
+    mat_int32_t nmemb = 1, i;
+    mat_complex_split_t *complex_data = NULL;
+    Fmatrix x;
+
+    if ( NULL == mat || NULL == matvar || NULL == matvar->name || matvar->rank != 2 )
+        return -1;
+
+    if (matvar->isComplex) {
+        mat_complex_split_t *complex_data = matvar->data;
+        if ( NULL == complex_data )
+            return 1;
+    }
+
+    switch ( matvar->data_type ) {
+        case MAT_T_DOUBLE:
+            x.type = 0;
+            break;
+        case MAT_T_SINGLE:
+            x.type = 10;
+            break;
+        case MAT_T_INT32:
+            x.type = 20;
+            break;
+        case MAT_T_INT16:
+            x.type = 30;
+            break;
+        case MAT_T_UINT16:
+            x.type = 40;
+            break;
+        case MAT_T_UINT8:
+            x.type = 50;
+            break;
+        default:
+            return 2;
+    }
+
+    for ( i = 0; i < matvar->rank; i++ ) {
+        mat_int32_t dim;
+        dim = (mat_int32_t)matvar->dims[i];
+        nmemb *= dim;
+    }
+
+    /* FIXME: SEEK_END is not Guaranteed by the C standard */
+    fseek(mat->fp,0,SEEK_END);         /* Always write at end of file */
+
+    if (mat->byteswap)
+        x.type += 1000;
+    x.mrows = (mat_int32_t)matvar->dims[0];
+    x.ncols = (mat_int32_t)matvar->dims[1];
+    x.imagf = matvar->isComplex ? 1 : 0;
+    x.namelen = (mat_int32_t)strlen(matvar->name) + 1;
+    fwrite(&x, sizeof(Fmatrix), 1, mat->fp);
+    fwrite(matvar->name, sizeof(char), x.namelen, mat->fp);
+    if (matvar->isComplex) {
+        fwrite(complex_data->Re, matvar->data_size, nmemb, mat->fp);
+        fwrite(complex_data->Im, matvar->data_size, nmemb, mat->fp);
+    }
+    else {
+        fwrite(matvar->data, matvar->data_size, nmemb, mat->fp);
+    }
+    return 0;
+}
 
 /** @if mat_devman
  * @brief Reads the data of a version 4 MAT file variable
@@ -59,7 +191,6 @@ void
 Read4(mat_t *mat,matvar_t *matvar)
 {
     unsigned int N;
-
     if ( fseek(mat->fp,matvar->internal->datapos,SEEK_SET) )
         return;
 
@@ -94,7 +225,7 @@ Read4(mat_t *mat,matvar_t *matvar)
             matvar->nbytes = N;
             matvar->data = malloc(matvar->nbytes);
             if ( NULL == matvar->data )
-                Mat_Critical("Memory allocation failure");
+                Rf_error("Memory allocation failure");
             else
                 ReadUInt8Data(mat,matvar->data,matvar->data_type,N);
             matvar->data_type = MAT_T_UINT8;
@@ -108,7 +239,7 @@ Read4(mat_t *mat,matvar_t *matvar)
 	    /* Read data into temporary buffer */
 	    buf = malloc(N*sizeof(double));
 	    if ( NULL == buf) {
-                Mat_Critical("ReadData: Allocation of temporary buffer failed");
+                Rf_error("ReadData: Allocation of temporary buffer failed");
                 break;
 	    }
 	    ReadDoubleData(mat, buf, matvar->data_type, N);
@@ -118,7 +249,7 @@ Read4(mat_t *mat,matvar_t *matvar)
             matvar->data      = calloc(1, matvar->data_size);
             if ( NULL == matvar->data ) {
 	        free(buf);
-                Mat_Critical("ReadData: Allocation of data pointer failed");
+                Rf_error("ReadData: Allocation of data pointer failed");
                 break;
             }
 	    data        = matvar->data;
@@ -131,7 +262,7 @@ Read4(mat_t *mat,matvar_t *matvar)
 	    data->jc = calloc(data->njc, sizeof(mat_int32_t));
             if ( NULL == data->ir || NULL == data->jc) {
 	        free(buf);
-                Mat_Critical("ReadData: Allocation of data pointer failed");
+                Rf_error("ReadData: Allocation of data pointer failed");
                 break;
             }
 
@@ -141,7 +272,7 @@ Read4(mat_t *mat,matvar_t *matvar)
 	        data->data = malloc(data->ndata*sizeof(double));
 	    if ( NULL == data->data ) {
 	        free(buf);
-	        Mat_Critical("ReadData: Allocation of data pointer failed");
+	        Rf_error("ReadData: Allocation of data pointer failed");
 		break;
 	    }
 
@@ -151,7 +282,7 @@ Read4(mat_t *mat,matvar_t *matvar)
                 complex_data->Im = malloc(data->ndata*sizeof(double));
                 if ( NULL == complex_data->Re || NULL == complex_data->Im ) {
   	            free(buf);
-		    Mat_Critical("ReadData: Allocation of data pointer failed");
+		    Rf_error("ReadData: Allocation of data pointer failed");
 		    break;
 		}
 	    }
@@ -185,9 +316,9 @@ Read4(mat_t *mat,matvar_t *matvar)
 	    matvar->dims[1] = data->njc - 1;
 	    free(buf);
             break;
-	}
+        }
         default:
-            Mat_Critical("MAT V4 data type error");
+            Rf_error("MAT V4 data type error");
             return;
     }
 
@@ -299,32 +430,9 @@ Mat_VarReadDataLinear4(mat_t *mat,matvar_t *matvar,void *data,int start,
 {
     size_t i, nmemb = 1;
     int err = 0;
-    enum matio_classes class_type = MAT_C_EMPTY;
 
     fseek(mat->fp,matvar->internal->datapos,SEEK_SET);
 
-    switch( matvar->data_type ) {
-        case MAT_T_DOUBLE:
-            class_type = MAT_C_DOUBLE;
-            break;
-        case MAT_T_SINGLE:
-            class_type = MAT_C_SINGLE;
-            break;
-        case MAT_T_INT32:
-            class_type = MAT_C_INT32;
-            break;
-        case MAT_T_INT16:
-            class_type = MAT_C_INT16;
-            break;
-        case MAT_T_UINT16:
-            class_type = MAT_C_UINT16;
-            break;
-        case MAT_T_UINT8:
-            class_type = MAT_C_UINT8;
-            break;
-        default:
-            return 1;
-    }
     matvar->data_size = Mat_SizeOf(matvar->data_type);
 
     for ( i = 0; i < matvar->rank; i++ )
@@ -355,7 +463,7 @@ Mat_VarReadDataLinear4(mat_t *mat,matvar_t *matvar,void *data,int start,
  *
  * @ingroup mat_internal
  * @param mat MAT file pointer
- * @retuen pointer to the MAT variable or NULL
+ * @return pointer to the MAT variable or NULL
  * @endif
  */
 matvar_t *
@@ -380,8 +488,6 @@ Mat_VarReadNextInfo4(mat_t *mat)
 
     err = fread(&tmp,sizeof(int),1,mat->fp);
     if ( !err ) {
-        /* Stefan Widgren 2014-01-17: Replaced free(matvar) with
-         * Mat_VarFree(matvar) */
         Mat_VarFree(matvar);
         return NULL;
     }
@@ -489,7 +595,6 @@ Mat_VarReadNextInfo4(mat_t *mat)
         Mat_VarFree(matvar);
         return NULL;
     }
-
     err = fread(&tmp,sizeof(int),1,mat->fp);
     if ( !err ) {
         Mat_VarFree(matvar);
@@ -520,10 +625,8 @@ Mat_VarReadNextInfo4(mat_t *mat)
     fseek(mat->fp,nBytes,SEEK_CUR);
 
     /* Check if sparse complex matrix */
-    if ( !matvar->isComplex
-    	 && MAT_T_DOUBLE == matvar->data_type
-    	 && MAT_C_SPARSE == matvar->class_type
-    	 && 4 == matvar->dims[1] )
+    if ( !matvar->isComplex && MAT_T_DOUBLE == matvar->data_type &&
+    	 MAT_C_SPARSE == matvar->class_type && 4 == matvar->dims[1] )
         matvar->isComplex = 1;
 
     return matvar;

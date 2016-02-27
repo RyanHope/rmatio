@@ -21,6 +21,7 @@ sync:
 	-cp -f ../matio/src/endian.c src/matio/
 	-cp -f ../matio/src/inflate.c src/matio/
 	-cp -f ../matio/src/mat4.h src/matio/
+	-cp -f ../matio/src/mat4.c src/matio/
 	-cp -f ../matio/src/mat5.h src/matio/
 	-cp -f ../matio/src/matvar_struct.c src/matio/
 	-cp -f ../matio/src/matvar_cell.c src/matio/
@@ -28,6 +29,7 @@ sync:
 	cd src/matio && patch -i ../../patches/inflate.c.patch
 	cd src/matio && patch -i ../../patches/matvar_struct.c.patch
 	cd src/matio && patch -i ../../patches/read_data.c.patch
+	cd src/matio && patch -i ../../patches/mat4.c.patch
 	cd src/matio && patch -i ../../patches/mat5.h.patch
 
 # Generate PDF output from the Rd sources

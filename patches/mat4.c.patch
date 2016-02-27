@@ -1,0 +1,191 @@
+*** mat4.c.orig	2016-02-27 08:54:42.840068085 +0100
+--- mat4.c	2016-02-27 17:34:30.220026963 +0100
+***************
+*** 36,41 ****
+--- 36,58 ----
+  #include "matio_private.h"
+  #include "mat4.h"
+  
++ /**
++  * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
++  * Changed 'Mat_Critical' to 'Rf_error'.
++  *
++  * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
++  * Replaced strdup_printf with strdup
++  *
++  * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
++  * (Read4): Added support to read sparse matrix of double
++  *  and complex data
++  *
++  * 2016-02-27: Stefan Widgren <stefan.widgren@gmail.com>
++  * (Mat_VarReadNextInfo4): Check if data is complex when reading info
++  * for a sparse matrix.
++  */
++ void Rf_error(const char*, ...);
++ 
+  /** @if mat_devman
+   * @brief Creates a new Matlab MAT version 4 file
+   *
+***************
+*** 59,65 ****
+      mat = malloc(sizeof(*mat));
+      if ( NULL == mat ) {
+          fclose(fp);
+!         Mat_Critical("Couldn't allocate memory for the MAT file");
+          return NULL;
+      }
+  
+--- 76,82 ----
+      mat = malloc(sizeof(*mat));
+      if ( NULL == mat ) {
+          fclose(fp);
+!         Rf_error("Couldn't allocate memory for the MAT file");
+          return NULL;
+      }
+  
+***************
+*** 71,77 ****
+      mat->bof           = 0;
+      mat->next_index    = 0;
+      mat->refs_id       = -1;
+!     mat->filename      = strdup_printf("%s",matname);
+      mat->mode          = 0;
+  
+      Mat_Rewind(mat);
+--- 88,94 ----
+      mat->bof           = 0;
+      mat->next_index    = 0;
+      mat->refs_id       = -1;
+!     mat->filename      = strdup(matname);
+      mat->mode          = 0;
+  
+      Mat_Rewind(mat);
+***************
+*** 208,220 ****
+              matvar->nbytes = N;
+              matvar->data = malloc(matvar->nbytes);
+              if ( NULL == matvar->data )
+!                 Mat_Critical("Memory allocation failure");
+              else
+                  ReadUInt8Data(mat,matvar->data,matvar->data_type,N);
+              matvar->data_type = MAT_T_UINT8;
+              break;
+          default:
+!             Mat_Critical("MAT V4 data type error");
+              return;
+      }
+  
+--- 225,324 ----
+              matvar->nbytes = N;
+              matvar->data = malloc(matvar->nbytes);
+              if ( NULL == matvar->data )
+!                 Rf_error("Memory allocation failure");
+              else
+                  ReadUInt8Data(mat,matvar->data,matvar->data_type,N);
+              matvar->data_type = MAT_T_UINT8;
+              break;
++         case MAT_C_SPARSE:
++ 	{
++ 	    mat_sparse_t *data;
++             double* buf;
++ 	    size_t i, j;
++ 
++ 	    /* Read data into temporary buffer */
++ 	    buf = malloc(N*sizeof(double));
++ 	    if ( NULL == buf) {
++                 Rf_error("ReadData: Allocation of temporary buffer failed");
++                 break;
++ 	    }
++ 	    ReadDoubleData(mat, buf, matvar->data_type, N);
++ 
++ 	    matvar->nbytes    = matvar->dims[0] - 1;
++             matvar->data_size = sizeof(mat_sparse_t);
++             matvar->data      = calloc(1, matvar->data_size);
++             if ( NULL == matvar->data ) {
++ 	        free(buf);
++                 Rf_error("ReadData: Allocation of data pointer failed");
++                 break;
++             }
++ 	    data        = matvar->data;
++ 	    data->nzmax = matvar->dims[0] - 1;
++             data->nir   = matvar->dims[0] - 1;
++             data->ndata = matvar->dims[0] - 1;
++             data->njc   = buf[2 * matvar->dims[0] - 1] + 1;
++ 
++ 	    data->ir = malloc(data->nir*sizeof(mat_int32_t));
++ 	    data->jc = calloc(data->njc, sizeof(mat_int32_t));
++             if ( NULL == data->ir || NULL == data->jc) {
++ 	        free(buf);
++                 Rf_error("ReadData: Allocation of data pointer failed");
++                 break;
++             }
++ 
++             if ( matvar->isComplex )
++                 data->data = malloc(sizeof(mat_complex_split_t));
++ 	    else
++ 	        data->data = malloc(data->ndata*sizeof(double));
++ 	    if ( NULL == data->data ) {
++ 	        free(buf);
++ 	        Rf_error("ReadData: Allocation of data pointer failed");
++ 		break;
++ 	    }
++ 
++             if ( matvar->isComplex ) {
++ 	        mat_complex_split_t *complex_data = data->data;
++                 complex_data->Re = malloc(data->ndata*sizeof(double));
++                 complex_data->Im = malloc(data->ndata*sizeof(double));
++                 if ( NULL == complex_data->Re || NULL == complex_data->Im ) {
++   	            free(buf);
++ 		    Rf_error("ReadData: Allocation of data pointer failed");
++ 		    break;
++ 		}
++ 	    }
++ 
++ 	    /* Copy data from temporary buffer */
++ 	    for ( i = 0; i < data->nzmax; i++ ) {
++ 	        data->ir[i] = (mat_int32_t)buf[i] - 1;
++ 		j = buf[matvar->dims[0] + i] - 1;
++ 		if (j && 0 == data->jc[j] )
++ 		    data->jc[j] = i;
++ 		if ( matvar->isComplex ) {
++ 		    mat_complex_split_t *complex_data = data->data;
++ 		    ((double*)complex_data->Re)[i] = (double)buf[2*matvar->dims[0] + i];
++ 		    ((double*)complex_data->Im)[i] = (double)buf[3*matvar->dims[0] + i];
++ 		} else {
++ 	    	    ((double*)data->data)[i] = (double)buf[2*matvar->dims[0] + i];
++ 		}
++ 	    }
++ 
++ 	    /* Make sure jc vector is non-decreasing */
++ 	    i = data->njc - 1;
++ 	    data->jc[i--] = data->nzmax;
++ 	    while ( i ) {
++ 	        if ( 0 == data->jc[i]  )
++ 		  data->jc[i] = data->jc[i+1];
++ 	        i--;
++ 	    }
++ 
++ 	    /* Update dimension */
++ 	    matvar->dims[0] = buf[matvar->dims[0] - 1];
++ 	    matvar->dims[1] = data->njc - 1;
++ 	    free(buf);
++             break;
++         }
+          default:
+!             Rf_error("MAT V4 data type error");
+              return;
+      }
+  
+***************
+*** 520,524 ****
+--- 624,633 ----
+          nBytes *= 2;
+      fseek(mat->fp,nBytes,SEEK_CUR);
+  
++     /* Check if sparse complex matrix */
++     if ( !matvar->isComplex && MAT_T_DOUBLE == matvar->data_type &&
++     	 MAT_C_SPARSE == matvar->class_type && 4 == matvar->dims[1] )
++         matvar->isComplex = 1;
++ 
+      return matvar;
+  }
